@@ -5,7 +5,7 @@ on:
     branches: [ main ]
 
 permissions:
-  id-token: write         # required for OIDC
+  id-token: write
   contents: read
 
 env:
@@ -24,27 +24,26 @@ jobs:
       - name: Authenticate to GCP via Workload Identity
         uses: google-github-actions/auth@v1
         with:
-          # full provider resource path (project number + pool + provider)
           workload_identity_provider: "projects/737511327435/locations/global/workloadIdentityPools/github/providers/my-repo"
-          # service account that was granted Workload Identity User role
           service_account: "gha-deployer@leadscore-lite-dev.iam.gserviceaccount.com"
 
       - name: Set up gcloud
         uses: google-github-actions/setup-gcloud@v1
         with:
           project_id: ${{ env.PROJECT_ID }}
+          export_default_credentials: true
 
       - name: Configure docker for Artifact Registry
-        run: gcloud auth configure-docker ${REGION}-docker.pkg.dev --quiet
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
 
       - name: Build image
         run: |
-          docker build -t ${REGION}-docker.pkg.dev/${{ env.PROJECT_ID }}/${REPO}/${IMAGE}:${{ github.sha }} .
-          docker push ${REGION}-docker.pkg.dev/${{ env.PROJECT_ID }}/${REPO}/${IMAGE}:${{ github.sha }}
+          docker build -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO }}/${{ env.IMAGE }}:${{ github.sha }} .
+          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO }}/${{ env.IMAGE }}:${{ github.sha }}
 
-      - name: Deploy to Cloud Run
-        uses: google-github-actions/deploy-cloudrun@v0
+      - name: Deploy to Cloud Run (using maintained action)
+        uses: google-github-actions/deploy-cloudrun@v1
         with:
           service: leadscore-hello
-          image: ${REGION}-docker.pkg.dev/${{ env.PROJECT_ID }}/${REPO}/${IMAGE}:${{ github.sha }}
-          region: ${REGION}
+          image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO }}/${{ env.IMAGE }}:${{ github.sha }}
+          region: ${{ env.REGION }}
