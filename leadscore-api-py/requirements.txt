@@ -1,2 +1,4 @@
+google-genai
 fastapi
 uvicorn[standard]
+pydantic
