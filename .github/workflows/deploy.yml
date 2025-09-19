@@ -13,6 +13,7 @@ env:
   REGION: us-central1
   REPO: leadscore-repo
   IMAGE: leadscore-hello
+  API_DIR: leadscore-api-py
 
 jobs:
   build-and-deploy:
@@ -38,7 +39,9 @@ jobs:
 
       - name: Build image
         run: |
-          docker build -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO }}/${{ env.IMAGE }}:${{ github.sha }} .
+          docker build -f "${{ env.API_DIR }}/Dockerfile" \
+            -t "${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO }}/${{ env.IMAGE }}:${{ github.sha }}" \
+            "${{ env.API_DIR }}"
           docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO }}/${{ env.IMAGE }}:${{ github.sha }}
 
       - name: Deploy to Cloud Run (using maintained action)
