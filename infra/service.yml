@@ -1,0 +1,22 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: leadscore-api-py
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/maxScale: "5"
+    spec:
+      serviceAccountName: gha-deployer@leadscore-lite-dev.iam.gserviceaccount.com
+      containers:
+        - image: us-central1-docker.pkg.dev/leadscore-lite-dev/leadscore-repo/leadscore-api-py:v2
+          env:
+            - name: GOOGLE_GENAI_USE_VERTEXAI
+              value: "true"
+            - name: GOOGLE_CLOUD_LOCATION
+              value: "us-central1"
+            - name: GOOGLE_CLOUD_PROJECT
+              value: "leadscore-lite-dev"
+      containerConcurrency: 80
+      timeoutSeconds: 300

@@ -1,0 +1,56 @@
+name: Build and deploy (dev)
+
+on:
+  push:
+    branches: [ "dev" ]
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  PROJECT_ID: leadscore-lite-dev
+  REGION: us-central1
+  REPO: leadscore-repo
+  IMAGE: leadscore-api-py
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to GCP via Workload Identity Federation
+        uses: google-github-actions/auth@v1
+        with:
+          workload_identity_provider: "projects/737511327435/locations/global/workloadIdentityPools/github-pool/providers/github-provider"
+          service_account: "gha-deployer@${{ env.PROJECT_ID }}.iam.gserviceaccount.com"
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+          install_components: docker-credential-gcr
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Build & push image
+        run: |
+          IMAGE_URI=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO }}/${{ env.IMAGE }}:${{ github.sha }}
+          docker build -t $IMAGE_URI .
+          docker push $IMAGE_URI
+        env:
+          PROJECT_ID: ${{ env.PROJECT_ID }}
+          REGION: ${{ env.REGION }}
+          REPO: ${{ env.REPO }}
+          IMAGE: ${{ env.IMAGE }}
+
+      - name: Deploy to Cloud Run (dev)
+        uses: google-github-actions/deploy-cloudrun@v0
+        with:
+          service: leadscore-api-py
+          image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO }}/${{ env.IMAGE }}:${{ github.sha }}
+          region: ${{ env.REGION }}
+          metadata: infra/service.yaml

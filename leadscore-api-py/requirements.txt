@@ -1,4 +1,7 @@
-google-genai
 fastapi
 uvicorn[standard]
+google-genai
+cloud-sql-python-connector
+pg8000
+sqlalchemy
 pydantic
