@@ -54,3 +54,11 @@ jobs:
           image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO }}/${{ env.IMAGE }}:${{ github.sha }}
           region: ${{ env.REGION }}
           metadata: infra/service.yaml
+
+      - name: Dump recent Cloud Run revision logs (for debugging)
+        run: |
+          echo "Fetching latest Cloud Run revision logs for service ${{ steps.determine_env.outputs.service }}"
+          gcloud logging read \
+            "resource.type=cloud_run_revision AND resource.labels.service_name=${{ steps.determine_env.outputs.service }}" \
+            --limit=200 --project=${{ env.PROJECT_ID }} --format="value(textPayload)" \
+            | sed -n '1,200p' || true
