@@ -24,7 +24,7 @@ jobs:
       - name: Authenticate to GCP via Workload Identity Federation
         uses: google-github-actions/auth@v1
         with:
-          workload_identity_provider: "projects/737511327435/locations/global/workloadIdentityPools/github/providers/github-provider"
+          workload_identity_provider: "projects/737511327435/locations/global/workloadIdentityPools/github/providers/my-repo"
           service_account: "gha-deployer@${{ env.PROJECT_ID }}.iam.gserviceaccount.com"
 
       - name: Set up gcloud
