@@ -5,3 +5,6 @@ cloud-sql-python-connector
 pg8000
 sqlalchemy
 pydantic
+python-json-logger
+google-cloud-logging
+google-cloud-error-reporting
