@@ -1,67 +1,66 @@
-name: Build and deploy (prod)
+name: Deploy Prod - LeadScore Lite
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ main ]
 
 permissions:
   id-token: write
   contents: read
 
 env:
-  PROJECT_ID: leadscore-lite-dev
-  REGION: us-central1
-  REPO: leadscore-repo
-  IMAGE: leadscore-api-py
+  REGION: ${{ secrets.REGION }}
+  PROJECT_ID: ${{ secrets.PROJECT_ID }}
+  ARTIFACT_REPO: ${{ secrets.ARTIFACT_REPO }}
+  IMAGE_NAME: ${{ secrets.IMAGE_NAME }}
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Authenticate to GCP via Workload Identity Federation
+      - name: Authenticate to GCP (WIF)
         uses: google-github-actions/auth@v1
         with:
-          workload_identity_provider: "projects/737511327435/locations/global/workloadIdentityPools/github/providers/my-repo"
-          service_account: "gha-deployer@${{ env.PROJECT_ID }}.iam.gserviceaccount.com"
+          workload_identity_provider: ${{ secrets.GITHUB_POOL }}
+          service_account: "gha-deployer@${{ secrets.PROJECT_ID }}.iam.gserviceaccount.com"
 
-      - name: Set up gcloud
+      - name: Setup gcloud CLI
         uses: google-github-actions/setup-gcloud@v1
         with:
-          project_id: ${{ env.PROJECT_ID }}
-          install_components: docker-credential-gcr
+          project_id: ${{ secrets.PROJECT_ID }}
+          export_default_credentials: true
 
-      - name: Configure Docker for Artifact Registry
-        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+      - name: Configure Docker auth for Artifact Registry
+        run: gcloud auth configure-docker ${REGION}-docker.pkg.dev --quiet
 
-      - name: Build & push image
+      - name: Build image
+        id: build
         run: |
-          IMAGE_URI=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO }}/${{ env.IMAGE }}:${{ github.sha }}
-          docker build -t $IMAGE_URI ./leadscore-api-py.
-          docker push $IMAGE_URI
-        env:
-          PROJECT_ID: ${{ env.PROJECT_ID }}
-          REGION: ${{ env.REGION }}
-          REPO: ${{ env.REPO }}
-          IMAGE: ${{ env.IMAGE }}
+          IMAGE=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          echo "IMAGE=$IMAGE" >> $GITHUB_OUTPUT
+          docker build -t $IMAGE .
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment: production   # <-- GitHub environment; can require approvals
-    steps:
-      - name: Authenticate to GCP via Workload Identity Federation
-        uses: google-github-actions/auth@v1
-        with:
-          workload_identity_provider: "projects/737511327435/locations/global/workloadIdentityPools/github-pool/providers/github-provider"
-          service_account: "gha-deployer@${{ env.PROJECT_ID }}.iam.gserviceaccount.com"
+      - name: Push image
+        run: |
+          docker push ${{ steps.build.outputs.IMAGE }}
 
       - name: Deploy to Cloud Run (prod)
-        uses: google-github-actions/deploy-cloudrun@v0
-        with:
-          service: leadscore-api-py
-          image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO }}/${{ env.IMAGE }}:${{ github.sha }}
-          region: ${{ env.REGION }}
-          metadata: infra/service.yaml
+        id: deploy
+        run: |
+          IMAGE=${{ steps.build.outputs.IMAGE }}
+          SERVICE=leadscore-api-prod
+          echo "Deploying $IMAGE to $SERVICE in $REGION (prod)"
+          gcloud run deploy $SERVICE \
+            --image=$IMAGE \
+            --region=${{ env.REGION }} \
+            --project=${{ env.PROJECT_ID }} \
+            --platform=managed \
+            --service-account=${{ secrets.SA_EMAIL }} \
+            --allow-unauthenticated \
+            --timeout=300s \
+            --memory=512Mi \
+            --set-env-vars=GOOGLE_GENAI_USE_VERTEXAI=True,GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }},GOOGLE_CLOUD_LOCATION=${{ env.REGION }} \
+            --set-secrets=DB_PASS=leadscore-db-pass:latest
