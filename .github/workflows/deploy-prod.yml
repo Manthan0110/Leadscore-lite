@@ -39,7 +39,7 @@ jobs:
       - name: Build & push image
         run: |
           IMAGE_URI=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO }}/${{ env.IMAGE }}:${{ github.sha }}
-          docker build -t $IMAGE_URI .
+          docker build -t $IMAGE_URI ./leadscore-api-py.
           docker push $IMAGE_URI
         env:
           PROJECT_ID: ${{ env.PROJECT_ID }}
