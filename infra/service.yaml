@@ -18,5 +18,13 @@ spec:
               value: "us-central1"
             - name: GOOGLE_CLOUD_PROJECT
               value: "leadscore-lite-dev"
+            - name: INSTANCE_CONNECTION_NAME
+              value: "leadscore-lite-dev:us-central1:leadscore-db"
+            - name: DB_USER
+              value: "leaduser"
+            - name: DB_PASS
+              value: "StrongPassword123!"
+            - name: DB_NAME
+              value: "leadscore_db"
       containerConcurrency: 80
       timeoutSeconds: 300
