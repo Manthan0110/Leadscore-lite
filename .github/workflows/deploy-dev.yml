@@ -2,7 +2,7 @@ name: Deploy Dev - LeadScore Lite
 
 on:
   push:
-    branches: [ develop ]
+    branches: [ main ]
 
 permissions:
   id-token: write
@@ -24,7 +24,7 @@ jobs:
       - name: Authenticate to GCP (WIF)
         uses: google-github-actions/auth@v1
         with:
-          workload_identity_provider: ${{ secrets.GITHUB_POOL }}  # optional: or paste full provider string
+          workload_identity_provider: ${{ secrets.GITHUB }}  # optional: or paste full provider string
           service_account: "gha-deployer@${{ secrets.PROJECT_ID }}.iam.gserviceaccount.com"
 
       - name: Setup gcloud CLI

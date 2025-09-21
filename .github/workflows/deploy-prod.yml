@@ -24,7 +24,7 @@ jobs:
       - name: Authenticate to GCP (WIF)
         uses: google-github-actions/auth@v1
         with:
-          workload_identity_provider: ${{ secrets.GITHUB_POOL }}
+          workload_identity_provider: ${{ secrets.GITHUB }}
           service_account: "gha-deployer@${{ secrets.PROJECT_ID }}.iam.gserviceaccount.com"
 
       - name: Setup gcloud CLI
