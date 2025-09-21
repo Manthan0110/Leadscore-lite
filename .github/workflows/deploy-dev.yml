@@ -45,7 +45,7 @@ jobs:
         run: |
           IMAGE_URI="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO }}/${{ env.IMAGE }}:${{ env.TAG }}"
           echo "Building $IMAGE_URI"
-          docker build -t "$IMAGE_URI" .
+          docker build -t "$IMAGE_URI" ./leadscore-api-py
           docker push "$IMAGE_URI"
         env:
           CLOUDSDK_CORE_DISABLE_PROMPTS: "1"
