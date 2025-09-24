@@ -156,13 +156,49 @@ class Lead(BaseModel):
 # FastAPI app
 app = FastAPI()
 
+# ===== DEBUG / DEV CORS PATCH (paste immediately after `app = FastAPI()`) =====
+# Startup log so we can confirm the deployed file is used
+logger.info("main_py_loaded", extra={"service": os.environ.get("K_SERVICE"), "time": time.time()})
+
+# Permissive middleware for development (temporary)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],          # allow any origin (dev only)
+    allow_origins=["*"],          # dev: allow any origin
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Lightweight test endpoint to verify container-level CORS headers
+@app.get("/cors-test")
+def cors_test(request: Request):
+    resp = JSONResponse(content={"ok": True, "note": "cors-test from container"})
+    # If an Origin header is present, reflect it
+    origin = request.headers.get("origin")
+    if origin:
+        resp.headers["Access-Control-Allow-Origin"] = origin
+        resp.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+        resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    return resp
+
+# Global preflight handler: responds to OPTIONS for any path
+@app.options("/{path:path}")
+async def global_options(request: Request, path: str):
+    logger.info("global_options_hit", extra={"path": path, "origin": request.headers.get("origin")})
+    req_origin = request.headers.get("origin")
+    headers = {}
+    if req_origin:
+        headers["Access-Control-Allow-Origin"] = req_origin
+        # If you later use credentials, set this and ensure origin is exact (not "*")
+        # headers["Access-Control-Allow-Credentials"] = "true"
+    else:
+        headers["Access-Control-Allow-Origin"] = "*"
+    headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS, PUT, DELETE"
+    headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    headers["Access-Control-Max-Age"] = "3600"
+    return Response(status_code=204, headers=headers)
+# ===== END PATCH =====
+
 
 
 @app.get("/")
