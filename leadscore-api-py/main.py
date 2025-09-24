@@ -362,15 +362,26 @@ def test_error_report():
 
 # explicit preflight response for /score to ensure CORS headers exist
 @app.options("/score")
-async def score_options():
-    headers = {
-        "Access-Control-Allow-Origin": "http://localhost:5173",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-        "Access-Control-Max-Age": "3600",
-        # If you use cookies/auth in future:
-        # "Access-Control-Allow-Credentials": "true",
-    }
+async def score_options(request: Request):
+    """
+    Dynamically reflect the Origin header if it matches the allowed origins list.
+    This prevents hardcoding a single origin while keeping CORS restrictive.
+    """
+    request_origin = request.headers.get("origin")
+    allowed = set(origins)
+
+    headers = {}
+    if request_origin and request_origin in allowed:
+        headers["Access-Control-Allow-Origin"] = request_origin
+        # If your frontend needs to send credentials (cookies/authorization), consider adding this header:
+        if app.user_middleware:
+            # We configured allow_credentials=True in middleware; reflect it here:
+            headers["Access-Control-Allow-Credentials"] = "true"
+    # Always allow methods and headers needed for the POST + preflight
+    headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+    headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    headers["Access-Control-Max-Age"] = "3600"
+
     return Response(status_code=204, headers=headers)
 
 # uvicorn entrypoint is handled by Dockerfile command: uvicorn main:app --host 0.0.0.0 --port $PORT
