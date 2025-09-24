@@ -156,24 +156,48 @@ class Lead(BaseModel):
 # FastAPI app
 app = FastAPI()
 
+# ===== DEBUG / DEV CORS PATCH (paste immediately after `app = FastAPI()`) =====
+# Startup log so we can confirm the deployed file is used
+logger.info("main_py_loaded", extra={"service": os.environ.get("K_SERVICE"), "time": time.time()})
 
-# allow these origins in dev — replace with your frontend origin
-origins = [
-    "http://localhost:5173",       # Vite default
-    "http://localhost:3000",       # CRA default
-    "http://127.0.0.1:5173",
-    "http://127.0.0.1:3000",
-    "http://localhost:8080",       # if you open frontend at this port
-    "https://your-frontend-domain.com"  # your production front-end origin(s)
-]
-
+# Permissive middleware for development (temporary)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,        # <- list of allowed origins; for dev you can use ["*"]
-    allow_credentials=True,       # if you are using cookies/auth; otherwise False
-    allow_methods=["GET","POST","PUT","DELETE","OPTIONS"],  # or ["*"]
-    allow_headers=["*"],          # or explicit list like ["Content-Type","Authorization"]
+    allow_origins=["*"],          # dev: allow any origin
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
+
+# Lightweight test endpoint to verify container-level CORS headers
+@app.get("/cors-test")
+def cors_test(request: Request):
+    resp = JSONResponse(content={"ok": True, "note": "cors-test from container"})
+    # If an Origin header is present, reflect it
+    origin = request.headers.get("origin")
+    if origin:
+        resp.headers["Access-Control-Allow-Origin"] = origin
+        resp.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+        resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    return resp
+
+# Global preflight handler: responds to OPTIONS for any path
+@app.options("/{path:path}")
+async def global_options(request: Request, path: str):
+    logger.info("global_options_hit", extra={"path": path, "origin": request.headers.get("origin")})
+    req_origin = request.headers.get("origin")
+    headers = {}
+    if req_origin:
+        headers["Access-Control-Allow-Origin"] = req_origin
+        # If you later use credentials, set this and ensure origin is exact (not "*")
+        # headers["Access-Control-Allow-Credentials"] = "true"
+    else:
+        headers["Access-Control-Allow-Origin"] = "*"
+    headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS, PUT, DELETE"
+    headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    headers["Access-Control-Max-Age"] = "3600"
+    return Response(status_code=204, headers=headers)
+# ===== END PATCH =====
 
 
 
@@ -221,24 +245,75 @@ async def log_requests(request: Request, call_next):
         raise
 
 
-def parse_json_from_model_output(text: str) -> Any:
+import json
+
+def parse_json_from_model_output(text: str):
     """
-    Tries to extract a JSON object from model output.
-    Returns parsed object or raises ValueError.
+    Safely extract the first top-level JSON object or array from `text`.
+    Returns the parsed Python object.
+    Raises ValueError if no valid JSON found.
     """
-    # Try direct JSON
+    if not text or not isinstance(text, str):
+        raise ValueError("No text to parse")
+
+    text = text.strip()
+
+    # 1) Try direct json.loads first (fast path)
     try:
         return json.loads(text)
     except Exception:
-        # try to find the first {...} block
-        m = re.search(r"\{(?:[^{}]|(?R))*\}", text, re.DOTALL)
-        if m:
-            try:
-                return json.loads(m.group(0))
-            except Exception:
-                pass
-    # fallback: raise so caller can handle
-    raise ValueError("Could not parse JSON from model output")
+        pass
+
+    # 2) Find the first { ... } or [ ... ] with balanced braces using a simple stack scan.
+    starts = []
+    for i, ch in enumerate(text):
+        if ch == "{":
+            starts.append(("obj", i))
+            break
+        if ch == "[":
+            starts.append(("arr", i))
+            break
+
+    if not starts:
+        # no obvious JSON start, try to find any substring that looks like JSON
+        # fallback: scan for any "{" occurrence
+        pos = text.find("{")
+        if pos == -1:
+            raise ValueError("No JSON object or array found in model output")
+        starts = [("obj", pos)]
+
+    kind, start_idx = starts[0]
+    # choose matching pair
+    if kind == "obj":
+        open_ch, close_ch = "{", "}"
+    else:
+        open_ch, close_ch = "[", "]"
+
+    stack = 0
+    end_idx = None
+    for j in range(start_idx, len(text)):
+        if text[j] == open_ch:
+            stack += 1
+        elif text[j] == close_ch:
+            stack -= 1
+            if stack == 0:
+                end_idx = j
+                break
+
+    if end_idx is None:
+        raise ValueError("Could not find matching closing brace/bracket in model output")
+
+    candidate = text[start_idx : end_idx + 1]
+    try:
+        return json.loads(candidate)
+    except Exception:
+        # last-resort: try to heal common issues like single quotes -> double quotes
+        healed = candidate.replace("\n", " ").replace("'", '"')
+        try:
+            return json.loads(healed)
+        except Exception:
+            raise ValueError("Failed to parse extracted JSON from model output")
+
 
 
 @app.post("/score")
