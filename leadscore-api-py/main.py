@@ -15,7 +15,7 @@ import logging
 import sys
 from typing import Optional, List, Any
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from pydantic import BaseModel
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -360,5 +360,17 @@ def test_error_report():
             _error_client.report_exception()
         return {"ok": True, "message": "reported test error"}
 
+# explicit preflight response for /score to ensure CORS headers exist
+@app.options("/score")
+async def score_options():
+    headers = {
+        "Access-Control-Allow-Origin": "http://localhost:5173",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Access-Control-Max-Age": "3600",
+        # If you use cookies/auth in future:
+        # "Access-Control-Allow-Credentials": "true",
+    }
+    return Response(status_code=204, headers=headers)
 
 # uvicorn entrypoint is handled by Dockerfile command: uvicorn main:app --host 0.0.0.0 --port $PORT
