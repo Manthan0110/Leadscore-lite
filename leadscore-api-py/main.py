@@ -18,6 +18,7 @@ from typing import Optional, List, Any
 from fastapi import FastAPI, Request
 from pydantic import BaseModel
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 
 # -- Logging setup (structured JSON)
 try:
@@ -154,6 +155,20 @@ class Lead(BaseModel):
 
 # FastAPI app
 app = FastAPI()
+
+origins = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "https://your-production-domain.com"
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,        # or ["*"] for testing
+    allow_credentials=True,
+    allow_methods=["GET","POST","OPTIONS","PUT","DELETE"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/")
