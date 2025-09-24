@@ -177,6 +177,16 @@ def hello():
     return {"msg": "Hello — logs are JSON now!"}
 
 
+# Add root POST endpoint so frontend POSTs to '/' work and preflight to '/' succeeds.
+# This reuses the same score() handler logic by delegating to it.
+@app.post("/")
+async def submit_root(lead: Lead):
+    """Accept POST / with same body as /score and delegate to the score handler.
+    This ensures OPTIONS preflight to '/' is handled (CORS middleware + route exists) and avoids 404 for /.
+    """
+    return await score(lead)
+
+
 # Middleware for structured request logging
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
