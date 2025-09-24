@@ -156,48 +156,24 @@ class Lead(BaseModel):
 # FastAPI app
 app = FastAPI()
 
-# ===== DEBUG / DEV CORS PATCH (paste immediately after `app = FastAPI()`) =====
-# Startup log so we can confirm the deployed file is used
-logger.info("main_py_loaded", extra={"service": os.environ.get("K_SERVICE"), "time": time.time()})
 
-# Permissive middleware for development (temporary)
+# allow these origins in dev — replace with your frontend origin
+origins = [
+    "http://localhost:5173",       # Vite default
+    "http://localhost:3000",       # CRA default
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:3000",
+    "http://localhost:8080",       # if you open frontend at this port
+    "https://your-frontend-domain.com"  # your production front-end origin(s)
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],          # dev: allow any origin
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=origins,        # <- list of allowed origins; for dev you can use ["*"]
+    allow_credentials=True,       # if you are using cookies/auth; otherwise False
+    allow_methods=["GET","POST","PUT","DELETE","OPTIONS"],  # or ["*"]
+    allow_headers=["*"],          # or explicit list like ["Content-Type","Authorization"]
 )
-
-# Lightweight test endpoint to verify container-level CORS headers
-@app.get("/cors-test")
-def cors_test(request: Request):
-    resp = JSONResponse(content={"ok": True, "note": "cors-test from container"})
-    # If an Origin header is present, reflect it
-    origin = request.headers.get("origin")
-    if origin:
-        resp.headers["Access-Control-Allow-Origin"] = origin
-        resp.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-        resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
-    return resp
-
-# Global preflight handler: responds to OPTIONS for any path
-@app.options("/{path:path}")
-async def global_options(request: Request, path: str):
-    logger.info("global_options_hit", extra={"path": path, "origin": request.headers.get("origin")})
-    req_origin = request.headers.get("origin")
-    headers = {}
-    if req_origin:
-        headers["Access-Control-Allow-Origin"] = req_origin
-        # If you later use credentials, set this and ensure origin is exact (not "*")
-        # headers["Access-Control-Allow-Credentials"] = "true"
-    else:
-        headers["Access-Control-Allow-Origin"] = "*"
-    headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS, PUT, DELETE"
-    headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
-    headers["Access-Control-Max-Age"] = "3600"
-    return Response(status_code=204, headers=headers)
-# ===== END PATCH =====
 
 
 
