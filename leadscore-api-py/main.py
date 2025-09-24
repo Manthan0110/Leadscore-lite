@@ -81,7 +81,7 @@ def get_genai_client():
 
 INSTANCE_CONNECTION_NAME = os.environ.get("INSTANCE_CONNECTION_NAME", "")
 DB_USER = os.environ.get("DB_USER", "leaduser")
-DB_PASS = os.environ.get("DB_PASS", "")
+DB_PASS = os.environ.get("DB_PASS", "StrongPassword123!")
 DB_NAME = os.environ.get("DB_NAME", "leadscore_db")
 
 # Using lazy engine creation to avoid startup network calls
@@ -156,17 +156,11 @@ class Lead(BaseModel):
 # FastAPI app
 app = FastAPI()
 
-origins = [
-    "http://localhost:5173",
-    "http://localhost:3000",
-    "https://your-production-domain.com"
-]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,        # or ["*"] for testing
-    allow_credentials=True,
-    allow_methods=["GET","POST","OPTIONS","PUT","DELETE"],
+    allow_origins=["*"],          # allow any origin (dev only)
+    allow_credentials=False,
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
