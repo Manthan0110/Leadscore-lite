@@ -160,6 +160,14 @@ app = FastAPI()
 # Startup log so we can confirm the deployed file is used
 logger.info("main_py_loaded", extra={"service": os.environ.get("K_SERVICE"), "time": time.time()})
 
+
+origins = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    # add production origin(s)
+]
+
+
 # Permissive middleware for development (temporary)
 app.add_middleware(
     CORSMiddleware,
