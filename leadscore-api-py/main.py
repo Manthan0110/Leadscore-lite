@@ -358,20 +358,22 @@ def test_error_report():
 @app.options("/score")
 async def score_options(request: Request):
     """
-    Dynamically reflect the Origin header if it matches the allowed origins list.
-    This prevents hardcoding a single origin while keeping CORS restrictive.
+    Robust preflight for /score — does not depend on an `origins` variable.
+    Reflects the incoming Origin header when present (safe fallback).
+    Works with your permissive middleware (allow_origins=["*"]) or stricter configs.
     """
     request_origin = request.headers.get("origin")
-    allowed = set(origins)
-
     headers = {}
-    if request_origin and request_origin in allowed:
+
+    if request_origin:
+        # Reflect the origin so browsers accept the preflight.
         headers["Access-Control-Allow-Origin"] = request_origin
-        # If your frontend needs to send credentials (cookies/authorization), consider adding this header:
-        if app.user_middleware:
-            # We configured allow_credentials=True in middleware; reflect it here:
-            headers["Access-Control-Allow-Credentials"] = "true"
-    # Always allow methods and headers needed for the POST + preflight
+        # If you later enable credentials, set this and ensure you reflect exact origins only:
+        # headers["Access-Control-Allow-Credentials"] = "true"
+    else:
+        # No Origin header supplied (rare); allow wildcard as fallback
+        headers["Access-Control-Allow-Origin"] = "*"
+
     headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
     headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
     headers["Access-Control-Max-Age"] = "3600"
