@@ -14,7 +14,7 @@ env:
   REGION: us-central1
   REPO: leadscore-repo
   IMAGE: leadscore-api-py
-  TAG: ${{ github.sha }}   # unique tag per commit
+  TAG: "latest"   # unique tag per commit
 
 jobs:
   build-and-deploy:
@@ -52,7 +52,7 @@ jobs:
 
       - name: Deploy to Cloud Run (dev) using gcloud
         env:
-          IMAGE_URI: "${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO }}/${{ env.IMAGE }}:${{ github.sha }}"
+          IMAGE_URI: "${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO }}/${{ env.IMAGE }}:${{ env.TAG }}"
           PROJECT_ID: ${{ env.PROJECT_ID }}
           REGION: ${{ env.REGION }}
           SA_EMAIL: "gha-deployer@${{ env.PROJECT_ID }}.iam.gserviceaccount.com"
